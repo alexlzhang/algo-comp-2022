@@ -16,8 +16,20 @@ class User:
 
 # Takes in two user objects and outputs a float denoting compatibility
 def compute_score(user1, user2):
-    # YOUR CODE HERE
-    return 0
+    #if (user2.gender not in user1.preferences or user1.gender not in user2.preferences):
+    if (user2.preferences.count(user1.gender) == 0 or user1.preferences.count(user2.gender) == 0):
+        return 0
+    score = 0
+    for i in range(20):
+        if (user1.responses[i] == user2.responses[i]):
+            score+=0.05
+    if (abs(user1.grad_year*user2.grad_year) == 1):
+        score*=0.8
+    if (abs(user1.grad_year*user2.grad_year) == 2):
+        score*=0.6
+    if (abs(user1.grad_year*user2.grad_year) == 3):
+        score*=0.4
+    return score
 
 
 if __name__ == '__main__':
