@@ -1,5 +1,6 @@
 import numpy as np
 from typing import List, Tuple
+from collections import deque
 
 def run_matching(scores: List[List], gender_id: List, gender_pref: List) -> List[Tuple]:
     """
@@ -21,8 +22,63 @@ def run_matching(scores: List[List], gender_id: List, gender_pref: List) -> List
             - What data structure can you use to take advantage of this fact when forming your matches?
         - This is by no means an exhaustive list, feel free to reach out to us for more help!
     """
+
+    # changing scores matrix based on certain metrics of gender compatibility
+    N = len(scores)
+    for i in range(N):
+        for j in range(i+1, N):
+            if (gender_id[i] == 'Nonbinary'):
+                if ((gender_pref[i] == 'Men' and gender_id[j] == 'Female') or (gender_pref[i] == 'Women' and gender_id[j] == 'Male')):
+                    scores[i][j] *= 0.5
+                if (gender_id[j] == 'Nonbinary'):
+                    scores[i][j] *= 0.9
+            else:
+                if (gender_pref[i] == 'Bisexual'):
+                    if (gender_id[j] != 'Male' and gender_id[j] != 'Female'):
+                        scores[i][j] *= 0.5
+                if ((gender_pref[i] == 'Men' and gender_id[j] != 'Male') or (gender_pref[i] == 'Women' and gender_id[j] != 'Female')):
+                    scores[i][j] *= 0.1
+    # list of sets that contain the set of Receivers each Proposer has already proposed to
+    already_proposed = []
+    for i in range(N//2, N):
+        already_proposed.append(set())
+    # list of Proposers each Receiver is currently matched with
+    curr_matchings = []
+    for i in range(N//2):
+        curr_matchings.append(-1)
+    # queue of currently free Proposers
+    proposers_queue = deque()
+    for i in range(N//2, N):
+        proposers_queue.append(i)
+    # implementation of Gale-Shapley
+    while (proposers_queue):
+        curr_proposer = proposers_queue.popleft()
+        curr_receiver = find_max_unproposed(scores, already_proposed[curr_proposer-N//2], curr_proposer)
+        already_proposed[curr_proposer-N//2].add(curr_receiver)
+        if curr_matchings[curr_receiver] == -1:
+            curr_matchings[curr_receiver] = curr_proposer
+        elif scores[curr_receiver][curr_matchings[curr_receiver]] < scores[curr_receiver][curr_proposer]:
+            proposers_queue.append(curr_matchings[curr_receiver])
+            curr_matchings[curr_receiver] = curr_proposer
+        else:
+            proposers_queue.append(curr_proposer)
+    # putting finalized matches into matches array and returning
     matches = [()]
+    for i in range(N//2):
+        matches.append((i, curr_matchings[i]))
     return matches
+
+# finds the Receiver of highest preference for a certain person who has not yet been proposed to by that person
+# I'm sure there are more efficient ways of finding this than what I did (e.g. making a list of pairs of Receivers and associated preference for each Proposer and then sorting these lists by decreasing preference, but I don't currently have enough experience with Python to implement it this way)
+def find_max_unproposed(scores: List[List], already_proposed_set: set, person: int):
+    N = len(scores)
+    currmax = 0
+    currperson = 0
+    for i in range(N//2):
+        if scores[person][i] > currmax and i not in already_proposed_set:
+            currmax = scores[person][i]
+            currperson = i
+    return currperson
 
 if __name__ == "__main__":
     raw_scores = np.loadtxt('raw_scores.txt').tolist()
@@ -39,3 +95,22 @@ if __name__ == "__main__":
             gender_preferences.append(curr)
 
     gs_matches = run_matching(raw_scores, genders, gender_preferences)
+    print(gs_matches)
+
+# wrote this function just to brute force check if the matching was stable (i.e. my program worked on the test data and my modifications to the scores matrix)
+def is_stable_matching(scores: List[List], curr_matchings: List):
+    N = len(scores)
+    for i in range(N//2):
+        for j in range(N//2, N):
+            j_position = -1
+            for k in range(N//2):
+                if curr_matchings[k] == j:
+                    j_position = k
+                    break
+            if scores[i][j] > scores[i][curr_matchings[i]] and scores[j][i] > scores[j][j_position]:
+                print(i)
+                print(j)
+                print("FALSE")
+                return
+    print("TRUE")
+    return 
